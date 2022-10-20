@@ -4,25 +4,19 @@ using UnityEngine;
 
 public class ObjectPool : MonoBehaviour
 {
-    public ObjectPool poolInstance;
-
     [Header("Set in Inspetcor")]
     public int initialCount;
     public int maxCount = 100;
     public GameObject objectInPool; //决定池中存放的对象
+    public GameObject parentObject; //决定实例化时的父对象
 
     //public int objectCount;
     public Queue<GameObject> queuePool = new Queue<GameObject>(); //对象池队列
 
-
-    private void Awake() {
-        poolInstance = this;
-    }
-    
     public void InitPool() {
         GameObject goTemp;
         for (int i = 0; i < initialCount; i++) {
-            goTemp = Instantiate(objectInPool, poolInstance.transform);
+            goTemp = Instantiate(objectInPool, parentObject.transform);
             queuePool.Enqueue(goTemp);
             goTemp.SetActive(false);
         }
@@ -34,7 +28,7 @@ public class ObjectPool : MonoBehaviour
             goTemp = queuePool.Dequeue();
             goTemp.SetActive(true);
         } else {
-            goTemp = Instantiate(objectInPool, poolInstance.transform);
+            goTemp = Instantiate(objectInPool, parentObject.transform);
         }
         return goTemp;
     }
