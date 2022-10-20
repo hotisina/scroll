@@ -1,1 +1,1 @@
-Assets/CircularScroll.cs绑到ScrollRect上，cellObject设置为预设的cellObject
+Assets/CircularScroll.cs和ObjectPoll.cs绑到ScrollRect上，content的锚点设为左上，cellObject设置为预设的cellObject
