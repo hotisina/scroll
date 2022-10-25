@@ -44,6 +44,8 @@ public class GridScroll : MonoBehaviour, IBeginDragHandler, IDragHandler {
     protected float cellHeight;
     protected RectTransform cellRectTransform;
 
+    protected GridLayoutGroup layoutGroup;
+
     protected float currentDragPos;
     protected float beginDragPos;   //用当前鼠标位置对比拖拽开始时鼠标位置来决定要不要更新
 
@@ -94,11 +96,13 @@ public class GridScroll : MonoBehaviour, IBeginDragHandler, IDragHandler {
         planeRectTransform = this.GetComponent<RectTransform>();
         planeWidth = planeRectTransform.rect.width;
         planeHeight = planeRectTransform.rect.height;
+        
 
         contentRectTransform = content.GetComponent<RectTransform>();
         contentWidth = contentRectTransform.rect.width;
         contentHeight = contentRectTransform.rect.height;
-        
+
+        layoutGroup = content.GetComponent<GridLayoutGroup>();
 
         scrollRect = this.GetComponent<ScrollRect>();
 
@@ -117,6 +121,8 @@ public class GridScroll : MonoBehaviour, IBeginDragHandler, IDragHandler {
         contentHeight = (yspacing + cellHeight) * (num / columnCount + (num % columnCount == 0 ? 0 : 1));
         contentWidth = cellWidth * columnCount + xspacing * (columnCount - 1);
         contentRectTransform.sizeDelta = new Vector2(contentWidth, contentHeight);
+        planeWidth = contentWidth;
+        planeRectTransform.sizeDelta = new Vector2(planeWidth, planeHeight);
         this.gameObject.GetComponent<RectTransform>().sizeDelta = new Vector2(planeWidth, contentHeight);
 
         //设置初始元素
@@ -129,9 +135,10 @@ public class GridScroll : MonoBehaviour, IBeginDragHandler, IDragHandler {
             posy = -(cellHeight * i + yspacing * i);
             pos = new Vector3((i % columnCount) * (xspacing + cellWidth), -(i / columnCount) * (cellHeight + yspacing));
 
-            goTemp = pool.GetObject();
+            //goTemp = pool.GetObject();
+            goTemp = Instantiate(cellObject);
             goTemp.transform.SetParent(content.transform);
-            goTemp.transform.localPosition = pos;
+            //goTemp.transform.localPosition = pos;
             goTemp.name = i.ToString();
             goTemp.GetComponentInChildren<Text>().text = i.ToString();
 
@@ -144,6 +151,7 @@ public class GridScroll : MonoBehaviour, IBeginDragHandler, IDragHandler {
 
         contentRectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 
             (totalNum / columnCount + (totalNum%columnCount == 0? 0 : 1))  * (yspacing + cellHeight));
+        planeHeight = planeRectTransform.rect.height;
 
         minIndex = 0;
         maxIndex = count - 1;
@@ -172,19 +180,24 @@ public class GridScroll : MonoBehaviour, IBeginDragHandler, IDragHandler {
         //检测上越界，最后一个元素必须活着否则列表就会崩溃
         if (go != null && IsOutBoundUp(pos) && minIndex != maxIndex) {
             cellObjects[minIndex].obj = null;
+            //Destroy(go);
             pool.ReturnObject(go);
+            Debug.Log("deleted object" + minIndex);
             minIndex++;
+            
 
             return;
         }
 
         //用当前最上面的元素生成再上一个元素的信息
         if (go != null && minIndex != 0 && cellObjects[minIndex - 1].obj == null
-            && !IsOutBoundUp(pos + yspacing + cellHeight)) {
+            && (!IsOutBoundUp(pos + yspacing + cellHeight) || !IsFirstColumn(minIndex))) {
+            
             nextGo = pool.GetObject();
+            //nextGo = Instantiate(cellObject);
             cellObjects[minIndex - 1].obj = nextGo;
             nextGo.transform.SetParent(go.transform.parent);
-            PlaceCell(minIndex, go, nextGo, 1); //让一个函数去放置元素，参数还比较繁琐，还有优化空间
+            //PlaceCell(minIndex, go, nextGo, 1); 
             //nextGo.transform.position = go.transform.position + new Vector3(0, yspacing + cellHeight);
             cellObjects[minIndex - 1].pos = nextGo.transform.position;
             cellObjects[minIndex - 1].index = minIndex - 1;
@@ -202,21 +215,26 @@ public class GridScroll : MonoBehaviour, IBeginDragHandler, IDragHandler {
         if (go != null && IsOutBoundDown(pos) && minIndex != maxIndex) {
             cellObjects[maxIndex].obj = null;
             pool.ReturnObject(go);
+            //Destroy(go);
             maxIndex--;
             return;
         }
 
         if (go != null && maxIndex != totalNum - 1 && cellObjects[maxIndex + 1].obj == null
-            && !IsOutBoundDown(pos - yspacing - cellHeight)) {
+            && (!IsOutBoundDown(pos - yspacing - cellHeight) || !IsLastColumn(maxIndex))) {
+            
             nextGo = pool.GetObject();
+            //nextGo = Instantiate(cellObject);
             cellObjects[maxIndex + 1].obj = nextGo;
             nextGo.transform.SetParent(go.transform.parent);
-            PlaceCell(maxIndex, go, nextGo, -1);
+            //PlaceCell(maxIndex, go, nextGo, -1);
             //nextGo.transform.position = go.transform.position - new Vector3(0, yspacing + cellHeight);
             cellObjects[maxIndex + 1].pos = nextGo.transform.position;
             cellObjects[maxIndex + 1].index = maxIndex + 1;
             nextGo.name = (maxIndex + 1).ToString();
+            
             nextGo.GetComponentInChildren<Text>().text = (maxIndex + 1).ToString();
+
             maxIndex++;
             return;
         }
@@ -261,8 +279,8 @@ public class GridScroll : MonoBehaviour, IBeginDragHandler, IDragHandler {
 
     protected bool IsOutBoundUp(float pos) {    //上越界
         Vector2 planePos = planeRectTransform.position;
-        if (pos - planePos.y > 2 * (cellHeight + yspacing) + planeHeight / 2) {
-            //Debug.Log("pos=" + pos + " contentPos.y " + planePos.y);
+        if (pos - planePos.y > cellHeight + yspacing + planeHeight / 2) {
+            Debug.Log("index= " + minIndex + " pos=" + pos + " planePos.y=" + planePos.y + " planeHeight=" + planeHeight);
             return true;
         }
         return false;
@@ -270,7 +288,7 @@ public class GridScroll : MonoBehaviour, IBeginDragHandler, IDragHandler {
 
     protected bool IsOutBoundDown(float pos) {
         Vector2 planePos = planeRectTransform.position;
-        if (planePos.y - pos > (cellHeight + yspacing) + planeHeight / 2) {
+        if (planePos.y - pos > yspacing + planeHeight / 2) {
             return true;
         }
         return false;
